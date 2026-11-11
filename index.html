@@ -1,0 +1,256 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Marriage Score Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: a single card-table column — players, round entry with live result, then standings and history */
+:root{
+  --bg:#eef3ef; --surface:#ffffff; --surface-2:#f4f8f5; --line:#d5e0d8;
+  --fg:#14241b; --muted:#5b6f62;
+  --felt:#1f5c3f; --felt-ink:#ffffff;
+  --suit:#c8323c; --gain:#1c7a45; --loss:#c8323c;
+  --display:"Bricolage Grotesque",ui-sans-serif,system-ui,sans-serif;
+  --body:"Figtree",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0c1712; --surface:#13221a; --surface-2:#182b21; --line:#24392d;
+  --fg:#e6efe9; --muted:#93a89b; --felt:#2f8a5e; --felt-ink:#ffffff;
+  --suit:#ff6b73; --gain:#52c785; --loss:#ff6b73; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0c1712; --surface:#13221a; --surface-2:#182b21; --line:#24392d;
+  --fg:#e6efe9; --muted:#93a89b; --felt:#2f8a5e; --felt-ink:#ffffff;
+  --suit:#ff6b73; --gain:#52c785; --loss:#ff6b73; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.5}
+.wrap{max-width:760px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(26px,6vw,36px);line-height:1.05;margin:0;letter-spacing:-.01em;text-wrap:balance}
+h1 .suits{color:var(--suit);font-size:.6em;vertical-align:middle;margin-left:6px;letter-spacing:.1em}
+.sub{color:var(--muted);margin:4px 0 0;font-size:14px}
+h2{font-family:var(--display);font-weight:600;font-size:19px;margin:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+input[type=text],input[type=number]{font:inherit;color:var(--fg);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+input[type=number]{font-family:var(--mono);font-variant-numeric:tabular-nums}
+input:focus-visible,button:focus-visible{outline:2px solid var(--felt);outline-offset:2px}
+input:disabled{opacity:.4}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--fg);padding:8px 12px;font-weight:600}
+button.primary{background:var(--felt);color:var(--felt-ink);border-color:var(--felt)}
+button.ghost{background:transparent}
+button.danger{color:var(--loss)}
+button:disabled{opacity:.45;cursor:not-allowed}
+.players{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.pchip{display:flex;gap:6px;align-items:center}
+.pchip button{padding:6px 9px;line-height:1}
+/* round table */
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:grid;grid-template-columns:minmax(0,1.2fr) 86px auto auto 74px;gap:8px;align-items:center;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.row.out{opacity:.6;border-style:dashed}
+.row.win{border-color:var(--felt);box-shadow:inset 3px 0 0 var(--felt)}
+.pname{font-weight:600;overflow-wrap:anywhere}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;border-radius:0;padding:7px 10px;background:transparent;font-size:13px;color:var(--muted)}
+.seg button[aria-pressed=true]{background:var(--felt);color:var(--felt-ink)}
+.winbtn{font-size:13px;padding:7px 10px;color:var(--muted)}
+.winbtn[aria-pressed=true]{background:var(--suit);border-color:var(--suit);color:#fff}
+.delta{font-family:var(--mono);font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
+.pos{color:var(--gain)} .neg{color:var(--loss)} .zero{color:var(--muted)}
+.rowsub{display:none}
+.opts{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+.check{display:flex;gap:8px;align-items:center;font-weight:500}
+.check input{width:18px;height:18px;accent-color:var(--felt)}
+.hint{font-size:13px;color:var(--muted);margin:0}
+.warn{font-size:13px;color:var(--loss);margin:0;font-weight:600}
+/* standings */
+.stand{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.st{border:1px solid var(--line);border-radius:10px;padding:12px;background:var(--surface-2);display:flex;flex-direction:column;gap:2px}
+.st.lead{border-color:var(--felt)}
+.st .n{font-weight:600;overflow-wrap:anywhere}
+.st .pts{font-family:var(--mono);font-weight:700;font-size:24px;font-variant-numeric:tabular-nums;line-height:1.2}
+.st .money{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:8px 10px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--surface-2)}
+td{font-family:var(--mono);font-size:14px}
+th:first-child,td:first-child{text-align:left;font-family:var(--body)}
+tr:last-child td{border-bottom:0}
+td .x{padding:3px 8px;font-size:12px}
+.empty{color:var(--muted);text-align:center;padding:18px;font-size:14px}
+details summary{cursor:pointer;font-weight:600;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:"▸ ";color:var(--muted)}
+details[open] summary::before{content:"▾ "}
+.settings{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-top:12px}
+.settings label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);font-weight:500}
+.rules{font-size:13px;color:var(--muted);margin:12px 0 0;padding-left:18px;max-width:65ch}
+.rules li{margin-bottom:4px}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+@media (max-width:560px){
+  .row{grid-template-columns:minmax(0,1fr) 80px;grid-template-areas:"n m" "s w" "d d"}
+  .row .pname{grid-area:n} .row .maal{grid-area:m} .row .seg{grid-area:s;justify-self:start} .row .winbtn{grid-area:w;justify-self:end} .row .delta{grid-area:d;display:flex;justify-content:space-between;border-top:1px dashed var(--line);padding-top:6px}
+  .seg button{padding:7px 7px}
+  .row .rowsub{display:inline;color:var(--muted);font-family:var(--body);font-weight:500;font-size:13px}
+}
+@media (prefers-reduced-motion:no-preference){button{transition:background .15s,color .15s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Marriage Score Calculator<span class="suits" aria-hidden="true">♠♥♣♦</span></h1>
+      <p class="sub">Enter each round's maal, mark who's seen and who won. Totals add up for you.</p>
+    </div>
+  </header>
+
+  <section class="panel" aria-labelledby="h-players">
+    <div class="panel-head"><h2 id="h-players">Players</h2><button id="addP" type="button">+ Add player</button></div>
+    <div class="players" id="players"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-round">
+    <div class="panel-head"><h2 id="h-round">Round <span id="roundNo">1</span></h2><span class="label">Maal · Status · Winner · Result</span></div>
+    <p class="hint" id="exampleHint">Example numbers are filled in to show how it works. Replace them with your round.</p>
+    <div class="rows" id="rows"></div>
+    <div class="opts">
+      <p class="hint" style="max-width:46ch">Mark <strong>Dublee</strong> on anyone who showed 7 pairs. If the winner is on Dublee, it counts as a Dublee win.</p>
+      <div style="display:flex;gap:8px"><button type="button" class="ghost" id="clearRound">Clear</button><button type="button" class="primary" id="saveRound">Save round</button></div>
+    </div>
+    <p class="warn" id="warn" hidden></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-stand">
+    <div class="panel-head"><h2 id="h-stand">Standings</h2><span class="label" id="rateLabel"></span></div>
+    <div class="stand" id="stand"></div>
+    <div class="tablewrap"><table id="hist"></table></div>
+    <div class="confirm" id="resetBox"><button type="button" class="danger" id="resetBtn">New game</button></div>
+  </section>
+
+  <section class="panel">
+    <details>
+      <summary>Settings &amp; rules</summary>
+      <div class="settings">
+        <label for="sSeen">Seen player pays winner<input type="number" id="sSeen" min="0" step="1"></label>
+        <label for="sUnseen">Unseen player pays winner<input type="number" id="sUnseen" min="0" step="1"></label>
+        <label for="sDub">Seen pays on Dublee win<input type="number" id="sDub" min="0" step="1"></label>
+        <label for="sDubP">Dublee player (not winner) pays<input type="number" id="sDubP" min="0" step="1"></label>
+        <label for="sRate">Money per point<input type="number" id="sRate" min="0" step="0.01"></label>
+        <label for="sCur">Currency symbol<input type="text" id="sCur" maxlength="4"></label>
+      </div>
+      <ul class="rules">
+        <li>Total maal = maal of every seen player added together. Unseen players count as 0.</li>
+        <li>Each player's result = (their maal × number of players) − total maal.</li>
+        <li>Every other player then pays the winner a fee: the seen fee if seen, the unseen fee if not, or the Dublee fee if the winner finished with Dublee.</li>
+        <li>A player marked Dublee who doesn't win counts as seen, keeps their maal, and pays the Dublee player fee (0 by default) instead of the seen fee.</li>
+        <li>Players marked Out sit that round out: they aren't counted in the number of players, pay nothing and get nothing. New players can join any time and start from 0.</li>
+        <li>Results across the table always add up to zero. Change the fees above to match your house rules.</li>
+      </ul>
+    </details>
+  </section>
+</div>
+
+<script>
+(function(){
+const KEY='marriage-calc-v1';
+const $=id=>document.getElementById(id);
+let S;
+function fresh(){
+  const players=['Player 1','Player 2','Player 3','Player 4'].map((n,i)=>({id:'p'+i+Date.now(),name:n}));
+  return {players,rounds:[],settings:{seen:3,unseen:10,dub:5,rate:1,cur:'$'},
+    cur:{maal:{[players[0].id]:12,[players[1].id]:5,[players[2].id]:8,[players[3].id]:0},seen:{[players[0].id]:true,[players[1].id]:true,[players[2].id]:true,[players[3].id]:false},winner:players[0].id,dublee:false},example:true};
+}
+function load(){try{const r=localStorage.getItem(KEY);if(r){const o=JSON.parse(r);if(o&&o.players)return o;}}catch(e){}return null}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+
+/* core scoring: returns {id: points} summing to 0 */
+function calc(all,r,st){
+  const players=all.filter(p=>!(r.out&&r.out[p.id]));
+  const n=players.length,res={};
+  let T=0; players.forEach(p=>{if(r.seen[p.id])T+=Number(r.maal[p.id])||0});
+  let fees=0;
+  const dub=r.dub||{},dubWin=!!(r.dublee||dub[r.winner]);
+  players.forEach(p=>{
+    const m=r.seen[p.id]?(Number(r.maal[p.id])||0):0;
+    let v=n*m-T;
+    if(p.id!==r.winner){const f=!r.seen[p.id]?st.unseen:dub[p.id]?(Number(st.dubp)||0):(dubWin?st.dub:st.seen);v-=f;fees+=f}
+    res[p.id]=v;
+  });
+  if(r.winner&&res[r.winner]!==undefined)res[r.winner]+=fees;
+  return res;
+}
+function fmt(v){if(v===undefined||v===null)return '—';return (v>0?'+':v<0?'−':'')+Math.abs(Math.round(v*100)/100)}
+function cls(v){return v>0?'pos':v<0?'neg':'zero'}
+function money(v){const st=S.settings,x=Math.round(v*st.rate*100)/100;return (x<0?'−':'')+st.cur+Math.abs(x).toFixed(2)}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function renderPlayers(){
+  const played=id=>S.rounds.some(r=>r.result[id]!==undefined);
+  $('players').innerHTML=S.players.map(p=>`<div class="pchip"><input type="text" id="name-${p.id}" data-id="${p.id}" value="${esc(p.name)}" aria-label="Player name">${(!played(p.id)&&S.players.length>2)?`<button type="button" data-rm="${p.id}" aria-label="Remove ${esc(p.name)}">✕</button>`:''}</div>`).join('');
+}
+function renderRound(){
+  const r=S.cur,res=calc(S.players,r,S.settings);
+  $('roundNo').textContent=S.rounds.length+1;
+  $('exampleHint').hidden=!S.example;
+  $('rows').innerHTML=S.players.map(p=>{
+    const out=!!r.out[p.id],seen=!out&&!!r.seen[p.id],isDub=seen&&!!r.dub[p.id],win=r.winner===p.id,v=res[p.id];
+    return `<div class="row${win?' win':''}${out?' out':''}">
+      <div class="pname">${esc(p.name)}</div>
+      <input class="maal" type="number" inputmode="numeric" id="maal-${p.id}" data-maal="${p.id}" value="${r.maal[p.id]??''}" placeholder="0" ${seen?'':'disabled'} aria-label="Maal for ${esc(p.name)}">
+      <div class="seg" role="group" aria-label="Status"><button type="button" data-seen="${p.id}" data-v="1" aria-pressed="${seen&&!isDub}">Seen</button><button type="button" data-seen="${p.id}" data-v="dub" aria-pressed="${isDub}">Dublee</button><button type="button" data-seen="${p.id}" data-v="0" aria-pressed="${!out&&!seen}">Unseen</button><button type="button" data-seen="${p.id}" data-v="out" aria-pressed="${out}">Out</button></div>
+      <button type="button" class="winbtn" data-win="${p.id}" aria-pressed="${win}" ${out?'disabled':''}>${win?(isDub?'Dublee win ♥':'Winner ♥'):'Winner'}</button>
+      <div class="delta ${cls(v)}"><span class="rowsub">This round</span>${out?'Sitting out':fmt(v)}</div>
+    </div>`}).join('');
+  const w=$('warn'),active=S.players.filter(p=>!r.out[p.id]).length;
+  if(active<2){w.textContent='At least 2 players need to be playing this round.';w.hidden=false}
+  else if(!r.winner){w.textContent='Pick who won this round.';w.hidden=false}else w.hidden=true;
+  $('saveRound').disabled=!r.winner||active<2;
+}
+function totals(){const t={};S.players.forEach(p=>t[p.id]=0);S.rounds.forEach(r=>S.players.forEach(p=>t[p.id]+=r.result[p.id]||0));return t}
+function renderStand(){
+  const t=totals(),max=Math.max(...Object.values(t));
+  $('rateLabel').textContent=`1 point = ${S.settings.cur}${S.settings.rate}`;
+  $('stand').innerHTML=S.players.map(p=>`<div class="st${S.rounds.length&&t[p.id]===max&&max>0?' lead':''}"><span class="n">${esc(p.name)}</span><span class="pts ${cls(t[p.id])}">${fmt(t[p.id])}</span><span class="money">${money(t[p.id])}</span></div>`).join('');
+  if(!S.rounds.length){$('hist').innerHTML=`<tr><td class="empty">No rounds saved yet. Save a round to start the scoreboard.</td></tr>`;return}
+  const nm=id=>(S.players.find(p=>p.id===id)||{}).name||'?';
+  let h=`<thead><tr><th>Round</th>${S.players.map(p=>`<th>${esc(p.name)}</th>`).join('')}<th></th></tr></thead><tbody>`;
+  S.rounds.forEach((r,i)=>{h+=`<tr><td>${i+1} · <span style="color:var(--muted)">${esc(nm(r.winner))}${(r.dublee||(r.dub&&r.dub[r.winner]))?' (D)':''}</span></td>${S.players.map(p=>`<td class="${cls(r.result[p.id])}">${fmt(r.result[p.id])}</td>`).join('')}<td><button type="button" class="x ghost danger" data-del="${i}" aria-label="Delete round ${i+1}">✕</button></td></tr>`});
+  h+=`<tr><td><strong>Total</strong></td>${S.players.map(p=>`<td class="${cls(t[p.id])}"><strong>${fmt(t[p.id])}</strong></td>`).join('')}<td></td></tr></tbody>`;
+  $('hist').innerHTML=h;
+}
+function renderSettings(){const s=S.settings;$('sSeen').value=s.seen;$('sUnseen').value=s.unseen;$('sDub').value=s.dub;$('sRate').value=s.rate;$('sDubP').value=s.dubp??0;$('sCur').value=s.cur}
+function render(){renderPlayers();renderRound();renderStand();renderSettings();save()}
+function blankRound(prevOut){const m={},s={};S.players.forEach(p=>{m[p.id]='';s[p.id]=true});return {maal:m,seen:s,dub:{},out:{...(prevOut||{})},winner:null,dublee:false}}
+function clearExample(){if(S.example){S.example=false}}
+
+/* events */
+$('players').addEventListener('input',e=>{const id=e.target.dataset.id;if(!id)return;const p=S.players.find(x=>x.id===id);p.name=e.target.value||'Player';renderRound();renderStand();save()});
+$('players').addEventListener('click',e=>{const id=e.target.dataset.rm;if(!id)return;S.players=S.players.filter(p=>p.id!==id);if(S.cur.winner===id)S.cur.winner=null;render()});
+$('addP').addEventListener('click',()=>{const id='p'+Date.now();S.players.push({id,name:'Player '+(S.players.length+1)});S.cur.maal[id]='';S.cur.seen[id]=true;render();const el=$('name-'+id);if(el){el.focus();el.select()}});
+$('rows').addEventListener('input',e=>{const id=e.target.dataset.maal;if(!id)return;clearExample();S.cur.maal[id]=e.target.value;
+  const res=calc(S.players,S.cur,S.settings);document.querySelectorAll('#rows .row').forEach((row,i)=>{const p=S.players[i],v=res[p.id],d=row.querySelector('.delta');if(S.cur.out[p.id])return;d.className='delta '+cls(v);d.innerHTML=`<span class="rowsub">This round</span>${fmt(v)}`});$('exampleHint').hidden=true;save()});
+$('rows').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;clearExample();
+  if(b.dataset.seen){const id=b.dataset.seen,v=b.dataset.v;
+    if(v==='out'){S.cur.out[id]=true;if(S.cur.winner===id)S.cur.winner=null}
+    else{delete S.cur.out[id];S.cur.seen[id]=v!=='0';S.cur.dub[id]=v==='dub';if(v==='0'&&S.cur.winner===id)S.cur.winner=null}}
+  if(b.dataset.win){const id=b.dataset.win;S.cur.winner=S.cur.winner===id?null:id;if(S.cur.winner)S.cur.seen[id]=true}
+  renderRound();save()});
+$('clearRound').addEventListener('click',()=>{S.example=false;S.cur=blankRound();renderRound();save()});
+$('saveRound').addEventListener('click',()=>{if(!S.cur.winner)return;const r=JSON.parse(JSON.stringify(S.cur));r.result=calc(S.players,r,S.settings);S.rounds.push(r);S.example=false;S.cur=blankRound(r.out);render()});
+$('hist').addEventListener('click',e=>{const i=e.target.dataset.del;if(i===undefined)return;S.rounds.splice(Number(i),1);render()});
+function resetIdle(){$('resetBox').innerHTML=`<button type="button" class="danger" id="resetBtn">New game</button>`;$('resetBtn').onclick=askReset}
+function askReset(){$('resetBox').innerHTML=`<span>Clear all rounds and start over?</span><button type="button" class="danger" id="rYes">Yes, new game</button><button type="button" class="ghost" id="rNo">Cancel</button>`;
+  $('rYes').onclick=()=>{const keep=S.players.map(p=>({...p})),st=S.settings;S={players:keep,rounds:[],settings:st,cur:null,example:false};S.cur=blankRound();resetIdle();render()};$('rNo').onclick=resetIdle}
+$('resetBtn').onclick=askReset;
+[['sSeen','seen'],['sUnseen','unseen'],['sDub','dub'],['sDubP','dubp'],['sRate','rate']].forEach(([id,k])=>$(id).addEventListener('input',e=>{S.settings[k]=Number(e.target.value)||0;renderRound();renderStand();save()}));
+$('sCur').addEventListener('input',e=>{S.settings.cur=e.target.value;renderStand();save()});
+
+function start(d){S=(d&&d.state)||load()||fresh();if(!S.cur.out)S.cur.out={};if(!S.cur.dub)S.cur.dub={};if(S.settings.dubp===undefined)S.settings.dubp=0;render()}
+window.claude?.hot?.snapshot?.(()=>({state:S}));
+window.claude?.hot?.ready?window.claude.hot.ready(start):start(window.claude?.hot?.data??{});
+})();
+</script>
+
+</body></html>
